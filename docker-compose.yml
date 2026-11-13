@@ -3,7 +3,8 @@ services:
     build: .
     container_name: cc-etl-lab-etl-01
     ports:
-      - "6000:6000"
+      # 宿主机不用 6000：Chrome/Edge 会 ERR_UNSAFE_PORT
+      - "6100:6000"
     environment:
       HOST: "0.0.0.0"
       PORT: "6000"

@@ -130,3 +130,79 @@ button.ghost {
 .kv { margin: 0.35rem 0; }
 .kv b { display: inline-block; min-width: 5.5rem; color: var(--muted); font-weight: 600; }
 .empty { color: var(--muted); padding: 1rem 0; }
+
+/* 看板告警条：抽取写歪 / 争用失败时同步点亮 */
+.alert {
+  background: #ffd9b8;
+  border: 1px solid var(--accent);
+  color: #7a2e0e;
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  margin-bottom: 0.8rem;
+  font-weight: 600;
+  animation: pulse 1.1s ease-in-out infinite alternate;
+}
+@keyframes pulse {
+  from { box-shadow: 0 0 0 0 rgba(196, 92, 38, 0.35); }
+  to { box-shadow: 0 0 0 7px rgba(196, 92, 38, 0.08); }
+}
+
+/* 口径设置 */
+.spec { margin-bottom: 1rem; }
+.spec h2 .muted { font-weight: 400; margin-left: 0.4rem; }
+.spec-form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.spec-form select,
+.spec-form input {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+.spec-form input { flex: 1; min-width: 220px; }
+.tag.method { background: #f6e3c5; color: #8a5a1a; }
+
+/* 水位列表（并排读数） */
+table.grid { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+table.grid th, table.grid td {
+  text-align: left;
+  padding: 0.45rem 0.4rem;
+  border-bottom: 1px dashed var(--line);
+  vertical-align: top;
+}
+table.grid th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+table.grid tbody tr { cursor: pointer; }
+table.grid tbody tr:hover { background: #ffeeda; }
+table.grid tbody tr.active { background: #ffd9b8; }
+.mono { font-family: var(--mono); font-size: 0.82rem; }
+
+/* 抽取方式 */
+.extract-box {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  margin-top: 0.6rem;
+  display: grid;
+  gap: 0.45rem;
+}
+.extract-box label { margin: 0; display: block; }
+.extract-box input[type="radio"] { width: auto; display: inline; margin-right: 0.3rem; }
+.extract-box input:not([type="radio"]) {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+/* 详情展开区：水位轨迹 / 抽取记录 */
+details { margin-top: 0.7rem; border-top: 1px dashed var(--line); padding-top: 0.5rem; }
+summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+table.mini { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.4rem; }
+table.mini th, table.mini td {
+  padding: 0.28rem 0.35rem;
+  border-bottom: 1px dashed var(--line);
+  text-align: left;
+}
+table.mini th { color: var(--muted); }
+tr.bad td { background: #f8d7d5; }

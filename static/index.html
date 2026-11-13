@@ -14,40 +14,158 @@
       <span class="who">{{ me }}</span>
       <button class="ghost" @click="logout">退出</button>
     </header>
-    <p class="muted">基线能力：管道列表、抽取、落库。后续题面在此叠加增量水位、清洗规则、并发争用等。</p>
+
+    <div v-if="alert" class="alert">⚠ {{ alert }}</div>
+
+    <section class="panel spec">
+      <h2>口径设置 · 今日推进法 <span class="muted">{{ specToday }}</span></h2>
+      <template v-if="spec">
+        <p class="kv"><b>推进法</b><span class="tag method">{{ spec.method_name }}</span></p>
+        <p class="kv"><b>推进说明</b>{{ spec.note }}</p>
+        <p class="muted">{{ spec.day }} 已钉死 · 当日不得改弦 · 抽取进行中禁止改说明</p>
+      </template>
+      <template v-else>
+        <div class="spec-form">
+          <select v-model="specForm.method">
+            <option v-for="m in methods" :key="m.key" :value="m.key">{{ m.name }}</option>
+          </select>
+          <input
+            v-model.trim="specForm.note"
+            placeholder="推进说明（必填，写死后当日不得改弦）"
+          />
+          <button @click="pinSpec" :disabled="busy || extractingAny">钉死推进法</button>
+        </div>
+        <p class="muted">
+          二选一：跟着源端最大变更时刻往前走，或跟着本管道上次成功落库条数往前走。
+        </p>
+      </template>
+      <p v-if="specMsg" class="err">{{ specMsg }}</p>
+    </section>
+
     <div class="board">
       <section class="panel">
-        <h2>管道列表</h2>
+        <h2>管道总览 · 水位列表</h2>
         <div v-if="!items.length" class="empty">暂无管道</div>
-        <div
-          v-for="p in items"
-          :key="p.id"
-          class="row"
-          :class="{ active: current && current.id === p.id }"
-          @click="open(p.id)"
-        >
-          <div>
-            <div>{{ p.title }}</div>
-            <div class="code">{{ p.code }} · {{ p.source_uri }}</div>
-          </div>
-          <span class="tag" :class="tagClass(p.status)">{{ p.status }}</span>
-        </div>
+        <table v-else class="grid">
+          <thead>
+            <tr>
+              <th>管道</th>
+              <th>水位值</th>
+              <th>今日已抽</th>
+              <th>落库条数</th>
+              <th>推进法</th>
+              <th>状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="p in items"
+              :key="p.id"
+              :class="{ active: current && current.id === p.id }"
+              @click="open(p.id)"
+            >
+              <td>
+                <div>{{ p.title }}</div>
+                <div class="code">{{ p.code }} · {{ p.source_uri }}</div>
+              </td>
+              <td class="mono">{{ p.watermark_display }}</td>
+              <td>{{ p.extracted_today }}</td>
+              <td>{{ p.loaded }}</td>
+              <td><span class="tag method">{{ p.method_name }}</span></td>
+              <td>
+                <span class="tag" :class="tagClass(p)">
+                  {{ p.extracting ? "抽取中" : p.status }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </section>
+
       <section class="panel">
-        <h2>管道详情</h2>
-        <div v-if="!current" class="empty">点左侧一条查看抽取与落库状态</div>
+        <h2>抽取详情</h2>
+        <div v-if="!current" class="empty">点左侧一条查看水位轨迹与抽取</div>
         <template v-else>
           <p class="kv"><b>题名</b>{{ current.title }}</p>
           <p class="kv"><b>编码</b><span class="code">{{ current.code }}</span></p>
           <p class="kv"><b>源地址</b><span class="code">{{ current.source_uri }}</span></p>
-          <p class="kv"><b>状态</b><span class="tag" :class="tagClass(current.status)">{{ current.status }}</span></p>
-          <p class="kv"><b>已抽取</b>{{ current.extracted }}</p>
-          <p class="kv"><b>已落库</b>{{ current.loaded }}</p>
+          <p class="kv">
+            <b>状态</b>
+            <span class="tag" :class="tagClass(current)">
+              {{ current.extracting ? "抽取中" : current.status }}
+            </span>
+          </p>
+          <p class="kv"><b>水位值</b><span class="mono">{{ current.watermark_display }}</span></p>
+          <p class="kv"><b>推进法</b><span class="tag method">{{ current.method_name }}</span></p>
+          <p class="kv"><b>今日已抽</b>{{ current.extracted_today }}</p>
+          <p class="kv"><b>落库条数</b>{{ current.loaded }}</p>
+          <p class="kv"><b>待落库</b>{{ current.staged }}</p>
+
+          <div class="extract-box">
+            <label>
+              <input type="radio" value="incremental" v-model="extractForm.mode" />
+              增量抽取（只收水位之后的变更行）
+            </label>
+            <label>
+              <input type="radio" value="full" v-model="extractForm.mode" />
+              全量抽取（越过水位，须写明原因）
+            </label>
+            <input
+              v-if="extractForm.mode === 'full'"
+              v-model.trim="extractForm.reason"
+              placeholder="全量原因（必填）"
+            />
+            <p class="muted">点抽取即携带推进法：{{ current.method_name }}</p>
+          </div>
+
           <div class="actions">
             <button @click="extract" :disabled="busy">执行抽取</button>
             <button class="ghost" @click="load" :disabled="busy">执行落库</button>
           </div>
           <p v-if="msg" class="muted">{{ msg }}</p>
+
+          <details>
+            <summary>水位轨迹（{{ current.watermark_events.length }}）</summary>
+            <div v-if="!current.watermark_events.length" class="empty">水位尚未推进</div>
+            <table v-else class="mini">
+              <thead>
+                <tr><th>时刻</th><th>旧水位</th><th>新水位</th><th>推进法</th><th>阶段</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="e in current.watermark_events" :key="e.id">
+                  <td class="mono">{{ e.created_at }}</td>
+                  <td class="mono">{{ e.old_watermark || "（起点）" }}</td>
+                  <td class="mono">{{ e.new_watermark }}</td>
+                  <td>{{ e.method_name }}</td>
+                  <td>{{ e.phase_label }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </details>
+
+          <details>
+            <summary>抽取记录 · 含争用失败（{{ current.extract_runs.length }}）</summary>
+            <div v-if="!current.extract_runs.length" class="empty">还没有抽取记录</div>
+            <table v-else class="mini">
+              <thead>
+                <tr><th>时刻</th><th>操作人</th><th>模式</th><th>结果</th><th>行数</th><th>备注</th></tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="r in current.extract_runs"
+                  :key="r.id"
+                  :class="{ bad: r.status === 'contention_failed' }"
+                >
+                  <td class="mono">{{ r.created_at }}</td>
+                  <td>{{ r.actor }}</td>
+                  <td>{{ r.mode_label }}</td>
+                  <td>{{ r.status_label }}</td>
+                  <td>{{ r.rows }}</td>
+                  <td>{{ r.error || r.reason || "—" }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </details>
         </template>
       </section>
     </div>

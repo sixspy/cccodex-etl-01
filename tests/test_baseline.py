@@ -13,16 +13,32 @@ def test_login_and_list(authed):
 
 
 def test_extract_then_load(authed):
+    authed.put(
+        "/api/spec",
+        json={"method": "source_max_ts", "note": "跟着源端最大变更时刻往前走"},
+    )
     items = authed.get("/api/pipelines").json()["items"]
     pid = items[0]["id"]
-    ex = authed.post(f"/api/pipelines/{pid}/extract")
+    authed.post(
+        f"/api/pipelines/{pid}/source-rows",
+        json={
+            "rows": [
+                {"code": "B-1", "change_ts": "2026-11-13 08:00:00"},
+                {"code": "B-2", "change_ts": "2026-11-13 09:00:00"},
+            ]
+        },
+    )
+    ex = authed.post(
+        f"/api/pipelines/{pid}/extract",
+        json={"mode": "incremental", "method": "source_max_ts"},
+    )
     assert ex.status_code == 200
     assert ex.json()["status"] == "已抽取待加载"
-    assert ex.json()["extracted"] > 0
+    assert ex.json()["extracted_today"] == 2
     ld = authed.post(f"/api/pipelines/{pid}/load")
     assert ld.status_code == 200
     assert ld.json()["status"] == "已落库"
-    assert ld.json()["loaded"] == ld.json()["extracted"]
+    assert ld.json()["loaded"] == 2
 
 
 def test_unauthed_blocked(client):
